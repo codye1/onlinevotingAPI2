@@ -21,9 +21,6 @@ export default [
         ...globals.node,
       },
     },
-    rules: {
-      'prettier/prettier': 'error',
-    },
   },
 
   prettierConfig,
