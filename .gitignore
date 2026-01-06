@@ -8,6 +8,8 @@ dist
 dist-ssr
 *.local
 .env
+generated
+
 
 # Editor directories and files
 .vscode/*
@@ -19,3 +21,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+/src/generated/prisma
