@@ -16,7 +16,6 @@ datasource db {
   provider = "postgresql"
 }
 
-// Example models
 
 model User {
   id            Int            @id @default(autoincrement())
@@ -34,4 +33,45 @@ model RefreshToken {
   createdAt    DateTime @default(now())
 
   @@index([userId])
+}
+
+// schema.prisma
+
+model Poll {
+  id          String   @id @default(cuid())
+  creator     String
+  title       String
+  category    String?
+  description String?
+  image       String?
+  type        String
+  resultsVisibility  String
+  changeVote  Boolean  @default(true)
+  voteInterval    String
+  createdAt   DateTime @default(now())
+  expireAt   DateTime?
+  options     PollOption[]
+  votes       Vote[]
+}
+
+model PollOption {
+  id        String  @id @default(cuid())
+  title     String
+  file      String?
+
+  pollId    String
+  poll      Poll    @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes    Vote[]
+}
+
+model Vote{
+  id         String   @id @default(cuid())
+  voterId    String
+  pollId     String
+  optionId   String
+  votedAt    DateTime @default(now())
+
+  poll       Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option     PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
 }
