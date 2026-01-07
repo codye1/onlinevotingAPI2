@@ -1,26 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import jwt, { type SignOptions, type Secret } from 'jsonwebtoken';
-import getEnvOrThrow from '../utils/getEnvOrThrow';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
+import jwtConfig from '../configs/jwtConfig';
 
 class TokenService {
   static generateToken = (payload: string | object | Buffer) => {
-    const accessSecret = getEnvOrThrow('JWT_ACCESS_SECRET') as Secret;
-    const accessExpiresIn = getEnvOrThrow(
-      'JWT_ACCESS_EXPIRES_IN',
-    ) as SignOptions['expiresIn'];
-
-    const refreshSecret = getEnvOrThrow('JWT_REFRESH_SECRET') as Secret;
-    const refreshExpiresIn = getEnvOrThrow(
-      'JWT_REFRESH_EXPIRES_IN',
-    ) as SignOptions['expiresIn'];
-
-    const accessToken = jwt.sign(payload, accessSecret, {
-      expiresIn: accessExpiresIn,
+    const accessToken = jwt.sign(payload, jwtConfig.accessSecret, {
+      expiresIn: jwtConfig.accessExpiresIn,
       jwtid: randomUUID(),
     });
-    const refreshToken = jwt.sign(payload, refreshSecret, {
-      expiresIn: refreshExpiresIn,
+    const refreshToken = jwt.sign(payload, jwtConfig.refreshSecret, {
+      expiresIn: jwtConfig.refreshExpiresIn,
       jwtid: randomUUID(),
     });
     return {
@@ -30,12 +20,17 @@ class TokenService {
   };
 
   static verifyAccessToken = (token: string) => {
-    const accessSecret = getEnvOrThrow('JWT_ACCESS_SECRET') as Secret;
-    return jwt.verify(token, accessSecret) as { userId: number };
+    const payload = jwt.verify(token, jwtConfig.accessSecret) as {
+      userId: number;
+    };
+    return { userId: payload.userId };
   };
+
   static verifyRefreshToken = (token: string) => {
-    const refreshSecret = getEnvOrThrow('JWT_REFRESH_SECRET') as Secret;
-    return jwt.verify(token, refreshSecret) as { userId: number };
+    const payload = jwt.verify(token, jwtConfig.refreshSecret) as {
+      userId: number;
+    };
+    return { userId: payload.userId };
   };
 
   static saveRefreshToken = async (data: {
@@ -54,6 +49,14 @@ class TokenService {
     });
     return token;
   };
+
+  static removeRefreshTokensByUserId = async (userId: number) => {
+    const tokens = await prisma.refreshToken.deleteMany({
+      where: { userId },
+    });
+    return tokens;
+  };
+
   static findRefreshToken = async (refreshToken: string) => {
     const token = await prisma.refreshToken.findUnique({
       where: { refreshToken },

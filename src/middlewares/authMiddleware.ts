@@ -24,6 +24,16 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
+
+    const err = error as { name?: string } | undefined;
+    const errorName = err && typeof err === 'object' ? err.name : undefined;
+    if (errorName === 'TokenExpiredError') {
+      return Send.unauthorized(res, null, 'Token expired');
+    }
+    if (errorName === 'JsonWebTokenError' || errorName === 'NotBeforeError') {
+      return Send.unauthorized(res, null, 'Invalid token');
+    }
+
     return Send.error(res, null, 'Unexpected error occurred');
   }
 };

@@ -11,9 +11,7 @@ const passwordSchema = z
   .trim();
 
 const login = z.object({
-  email: z
-    .email({ message: 'Будь ласка, введіть дійсну електронну адресу.' })
-    .trim(),
+  email: z.email({ message: 'Please enter a valid email address.' }).trim(),
   password: z.string().min(1, 'Password is required'),
 });
 

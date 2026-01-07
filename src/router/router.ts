@@ -2,17 +2,17 @@ import { Router } from 'express';
 import AuthController from '../controllers/AuthController';
 import { prisma } from '../lib/prisma';
 import authMiddleware from '../middlewares/authMiddleware';
-import ValidationMiddleware from '../middlewares/validationMiddleware';
 import authSchema from '../validations/authSchema';
+import validationMiddleware from '../middlewares/validationMiddleware';
 
 const router = Router();
 
 router.post('/register', [
-  ValidationMiddleware.validateBody(authSchema.register),
+  validationMiddleware(authSchema.register),
   AuthController.register,
 ]);
 router.post('/login', [
-  ValidationMiddleware.validateBody(authSchema.login),
+  validationMiddleware(authSchema.login),
   AuthController.login,
 ]);
 router.post('/logout', AuthController.logout);
