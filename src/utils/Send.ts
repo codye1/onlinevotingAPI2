@@ -7,7 +7,6 @@ class Send {
       message,
       ...data,
     });
-    return;
   }
 
   static error<T>(res: Response, data: T, message = 'error') {
@@ -17,7 +16,6 @@ class Send {
       message,
       ...data,
     });
-    return;
   }
 
   static notFound<T>(res: Response, data: T, message = 'not found') {
@@ -27,7 +25,6 @@ class Send {
       message,
       ...data,
     });
-    return;
   }
 
   static unauthorized<T>(res: Response, data: T, message = 'unauthorized') {
@@ -37,7 +34,6 @@ class Send {
       message,
       ...data,
     });
-    return;
   }
 
   static validationErrors(res: Response, errors: Record<string, string[]>) {
@@ -47,7 +43,6 @@ class Send {
       message: 'Validation error',
       errors,
     });
-    return;
   }
 
   static forbidden<T>(res: Response, data: T, message = 'forbidden') {
@@ -57,17 +52,20 @@ class Send {
       message,
       ...data,
     });
-    return;
   }
 
-  static badRequest<T>(res: Response, data: T, message = 'bad request') {
+  static badRequest<T>(
+    res: Response,
+    data: T,
+    message = 'bad request',
+    code: number = 400,
+  ) {
     // 400 for general bad request errors
-    res.status(400).json({
+    res.status(code).json({
       ok: false,
       message,
       ...data,
     });
-    return;
   }
 }
 

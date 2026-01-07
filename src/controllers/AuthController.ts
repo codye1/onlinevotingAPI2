@@ -6,11 +6,10 @@ import TokenService from '../service/TokenService';
 class AuthController {
   static register = async (req: Request, res: Response) => {
     const { email, password } = req.body;
-    console.log('Register request body:', req.body);
+
     try {
       const user = await UserService.getUserByEmail(email);
-      if (user) return Send.error(res, null, 'User already exists');
-
+      if (user) return Send.badRequest(res, null, 'User already exists', 409);
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const newUser = await UserService.createUser({
@@ -81,13 +80,13 @@ class AuthController {
       return Send.error(res, null, 'Unexpected error occurred');
     }
   };
-  static logout = (req: Request, res: Response) => {
+  static logout = async (req: Request, res: Response) => {
     try {
       const refreshToken = req.cookies.refreshToken;
       if (!refreshToken)
         return Send.badRequest(res, null, 'No refresh token provided');
-      TokenService.removeRefreshToken(refreshToken);
-      res.clearCookie('accessToken');
+      await TokenService.removeRefreshToken(refreshToken);
+
       res.clearCookie('refreshToken');
       return Send.success(res, null, 'Logout successful');
     } catch (error) {
@@ -102,15 +101,15 @@ class AuthController {
         return Send.unauthorized(res, null, 'No refresh token provided');
 
       const tokenData = TokenService.verifyRefreshToken(refreshToken);
-      console.log(refreshToken);
+
       const savedToken = await TokenService.findRefreshToken(refreshToken);
       if (!savedToken)
         return Send.unauthorized(res, null, 'Invalid refresh token');
-      console.log(savedToken);
+
       const user = await UserService.getUserById(tokenData.userId);
       if (!user) return Send.notFound(res, null, 'User not found');
       await TokenService.removeRefreshToken(refreshToken);
-      console.log('Generating new tokens for user:', user.id, user.email);
+
       const tokens = TokenService.generateToken({
         userId: user.id,
         email: user.email,
@@ -120,7 +119,6 @@ class AuthController {
         userId: user.id,
         refreshToken: tokens.refreshToken,
       });
-      console.log('New tokens generated and saved for user:', user.id);
 
       res.cookie('refreshToken', tokens.refreshToken, {
         httpOnly: true,
