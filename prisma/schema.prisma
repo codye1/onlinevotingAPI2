@@ -19,8 +19,19 @@ datasource db {
 // Example models
 
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  password      String
+
+  refreshTokens RefreshToken[]
 }
 
+model RefreshToken {
+  id           Int      @id @default(autoincrement())
+  refreshToken String   @unique
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
