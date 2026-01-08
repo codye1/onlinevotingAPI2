@@ -20,7 +20,10 @@ router.post('/logout', AuthController.logout);
 router.post('/refresh', AuthController.refreshToken);
 
 router.post('/polls', authMiddleware, PollsController.addPoll);
+router.get('/polls', authMiddleware, PollsController.getPolls);
 router.get('/polls/:id', authMiddleware, PollsController.getPoll);
+router.post('/polls/:id/votes', authMiddleware, PollsController.votePoll);
+
 // temporary route to fetch all users for testing purposes
 router.get('/users', authMiddleware, async (req, res) => {
   const users = await prisma.user.findMany();

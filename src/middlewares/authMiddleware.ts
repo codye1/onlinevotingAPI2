@@ -16,7 +16,7 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
 
     const tokenData = TokenService.verifyAccessToken(token);
 
-    if (!tokenData || typeof tokenData.userId !== 'number') {
+    if (!tokenData || typeof tokenData.userId !== 'string') {
       return Send.unauthorized(res, null, 'Invalid token');
     }
 

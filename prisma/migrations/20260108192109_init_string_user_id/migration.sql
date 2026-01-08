@@ -1,13 +1,21 @@
-/*
-  Warnings:
+-- CreateTable
+CREATE TABLE "User" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
 
-  - You are about to drop the column `name` on the `User` table. All the data in the column will be lost.
-  - Made the column `password` on table `User` required. This step will fail if there are existing NULL values in that column.
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
 
-*/
--- AlterTable
-ALTER TABLE "User" DROP COLUMN "name",
-ALTER COLUMN "password" SET NOT NULL;
+-- CreateTable
+CREATE TABLE "RefreshToken" (
+    "id" TEXT NOT NULL,
+    "refreshToken" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RefreshToken_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "Poll" (
@@ -18,9 +26,10 @@ CREATE TABLE "Poll" (
     "description" TEXT,
     "image" TEXT,
     "type" TEXT NOT NULL,
-    "visibility" TEXT NOT NULL,
+    "resultsVisibility" TEXT NOT NULL,
     "changeVote" BOOLEAN NOT NULL DEFAULT true,
-    "interval" TEXT NOT NULL,
+    "voteInterval" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expireAt" TIMESTAMP(3),
 
     CONSTRAINT "Poll_pkey" PRIMARY KEY ("id")
@@ -48,7 +57,16 @@ CREATE TABLE "Vote" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RefreshToken_refreshToken_key" ON "RefreshToken"("refreshToken");
+
+-- CreateIndex
 CREATE INDEX "RefreshToken_userId_idx" ON "RefreshToken"("userId");
+
+-- AddForeignKey
+ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PollOption" ADD CONSTRAINT "PollOption_pollId_fkey" FOREIGN KEY ("pollId") REFERENCES "Poll"("id") ON DELETE CASCADE ON UPDATE CASCADE;

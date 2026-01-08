@@ -21,20 +21,20 @@ class TokenService {
 
   static verifyAccessToken = (token: string) => {
     const payload = jwt.verify(token, jwtConfig.accessSecret) as {
-      userId: number;
+      userId: string;
     };
     return { userId: payload.userId };
   };
 
   static verifyRefreshToken = (token: string) => {
     const payload = jwt.verify(token, jwtConfig.refreshSecret) as {
-      userId: number;
+      userId: string;
     };
     return { userId: payload.userId };
   };
 
   static saveRefreshToken = async (data: {
-    userId: number;
+    userId: string;
     refreshToken: string;
   }) => {
     const token = await prisma.refreshToken.create({
@@ -50,7 +50,7 @@ class TokenService {
     return token;
   };
 
-  static removeRefreshTokensByUserId = async (userId: number) => {
+  static removeRefreshTokensByUserId = async (userId: string) => {
     const tokens = await prisma.refreshToken.deleteMany({
       where: { userId },
     });

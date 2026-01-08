@@ -1,4 +1,7 @@
+import { PollFindManyArgs } from '../../generated/prisma/models';
 import { prisma } from '../lib/prisma';
+import isSortOrder from '../utils/isSortOrder';
+import AppError from '../utils/AppError';
 
 interface Poll {
   title: string;
@@ -14,6 +17,16 @@ interface Poll {
   expireAt?: Date;
 }
 
+interface Params {
+  pageSize?: string;
+  cursor?: string;
+  sortByVotes?: string;
+  search?: string;
+  category?: string;
+  userId: string;
+  filter?: string;
+}
+
 class PollService {
   static async addPoll(pollData: Poll) {
     const { options, expireAt, ...poll } = pollData;
@@ -24,7 +37,7 @@ class PollService {
         ...(expireAt ? { expireAt } : {}),
       },
     });
-    await prisma.pollOption.createMany({
+    const createdOptions = await prisma.pollOption.createManyAndReturn({
       data: options.map((option) => {
         if (typeof option !== 'string') {
           return {
@@ -40,18 +53,16 @@ class PollService {
       }),
     });
 
-    return { options: pollData.options, ...createdPoll };
+    return { options: createdOptions, ...createdPoll };
   }
 
-  static async getPollById(pollId: string, userId: number) {
-    const voterId = String(userId);
-
+  static async getPollById(pollId: string, userId: string) {
     const poll = await prisma.poll.findUnique({
       where: { id: pollId },
       include: {
         options: true,
         votes: {
-          where: { voterId: voterId },
+          where: { voterId: userId },
           orderBy: { votedAt: 'desc' },
           include: {
             option: true,
@@ -69,6 +80,165 @@ class PollService {
       votes: undefined,
       userVote: lastVote?.option ?? null,
     };
+  }
+
+  static async getPolls({
+    pageSize,
+    cursor,
+    sortByVotes,
+    filter,
+    userId,
+    search,
+    category,
+  }: Params) {
+    const limit = pageSize ? parseInt(pageSize) : 10;
+
+    const orderBy = isSortOrder(sortByVotes)
+      ? [{ votes: { _count: sortByVotes } }, { id: 'asc' as const }]
+      : { createdAt: 'desc' as const };
+
+    const queryArgs: PollFindManyArgs = {
+      take: limit,
+      orderBy,
+    };
+
+    switch (filter) {
+      case 'active':
+        queryArgs.where = {
+          OR: [{ expireAt: null }, { expireAt: { gt: new Date() } }],
+        };
+        break;
+      case 'expired':
+        queryArgs.where = {
+          expireAt: { lt: new Date() },
+        };
+        break;
+      case 'createdByUser':
+        queryArgs.where = {
+          creator: String(userId),
+        };
+        break;
+      case 'participatedByUser':
+        queryArgs.where = {
+          votes: {
+            some: {
+              voterId: String(userId),
+            },
+          },
+        };
+        break;
+      case 'all':
+        break;
+      default:
+        break;
+    }
+
+    if (search) {
+      queryArgs.where = {
+        ...queryArgs.where,
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      };
+    }
+
+    if (category) {
+      queryArgs.where = {
+        ...queryArgs.where,
+        category: category,
+      };
+    }
+
+    if (cursor) {
+      queryArgs.cursor = { id: cursor };
+      queryArgs.skip = 1;
+    }
+
+    const polls = await prisma.poll.findMany({
+      ...queryArgs,
+      select: {
+        id: true,
+        title: true,
+        resultsVisibility: true,
+        type: true,
+        createdAt: true,
+        expireAt: true,
+        _count: {
+          select: {
+            votes: true,
+          },
+        },
+      },
+    });
+
+    const formattedPolls = polls.map((poll) => ({
+      ...poll,
+      votes: poll._count.votes,
+      _count: undefined,
+    }));
+
+    return formattedPolls;
+  }
+
+  static async votePoll(pollId: string, optionId: string, userId: string) {
+    const poll = await prisma.poll.findUnique({
+      where: { id: pollId },
+      select: {
+        changeVote: true,
+        expireAt: true,
+        voteInterval: true,
+        votes: {
+          where: { voterId: userId },
+        },
+      },
+    });
+
+    if (!poll) {
+      throw new AppError('Poll not found', 404, 'POLL_NOT_FOUND');
+    }
+
+    if (poll.expireAt && poll.expireAt < new Date()) {
+      throw new AppError('Poll has expired', 410, 'POLL_EXPIRED');
+    }
+
+    if (!poll.changeVote && poll.votes[0]?.voterId == userId) {
+      throw new AppError(
+        'Changing vote is not allowed in this poll',
+        403,
+        'POLL_CHANGE_VOTE_FORBIDDEN',
+      );
+    }
+
+    if (Number(poll.voteInterval) > 0 && poll.votes[0]?.votedAt) {
+      const lastVoteTime = new Date(poll.votes[0].votedAt).getTime();
+      const now = Date.now();
+      const interval = Number(poll.voteInterval);
+      console.log(interval);
+      console.log(now - lastVoteTime);
+      if (now - lastVoteTime < interval) {
+        throw new AppError(
+          `You can vote again after ${interval - (now - lastVoteTime)} ms`,
+          429,
+          'POLL_VOTE_INTERVAL',
+        );
+      }
+    }
+
+    await prisma.vote.deleteMany({
+      where: {
+        pollId,
+        voterId: userId,
+      },
+    });
+
+    await prisma.vote.create({
+      data: {
+        pollId,
+        optionId,
+        voterId: userId,
+      },
+    });
   }
 }
 
