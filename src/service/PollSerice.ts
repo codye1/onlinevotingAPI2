@@ -103,22 +103,22 @@ class PollService {
     };
 
     switch (filter) {
-      case 'active':
+      case 'ACTIVE':
         queryArgs.where = {
           OR: [{ expireAt: null }, { expireAt: { gt: new Date() } }],
         };
         break;
-      case 'expired':
+      case 'EXPIRED':
         queryArgs.where = {
           expireAt: { lt: new Date() },
         };
         break;
-      case 'createdByUser':
+      case 'CREATED':
         queryArgs.where = {
           creator: String(userId),
         };
         break;
-      case 'participatedByUser':
+      case 'PARTICIPATED':
         queryArgs.where = {
           votes: {
             some: {
@@ -127,7 +127,7 @@ class PollService {
           },
         };
         break;
-      case 'all':
+      case 'ALL':
         break;
       default:
         break;
@@ -143,7 +143,7 @@ class PollService {
       };
     }
 
-    if (category) {
+    if (category && category !== 'ALL') {
       queryArgs.where = {
         ...queryArgs.where,
         category: category,
@@ -239,6 +239,51 @@ class PollService {
         voterId: userId,
       },
     });
+  }
+
+  static async getPollResults(pollId: string) {
+    const poll = await prisma.poll.findUnique({
+      where: { id: pollId },
+      select: {
+        id: true,
+        creator: true,
+        title: true,
+        type: true,
+        createdAt: true,
+        options: {
+          select: {
+            id: true,
+            title: true,
+            file: true,
+            pollId: true,
+            _count: {
+              select: {
+                votes: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!poll) {
+      throw new AppError('Poll not found', 404, 'POLL_NOT_FOUND');
+    }
+
+    return {
+      id: poll.id,
+      creatorEmail: poll.creator,
+      title: poll.title,
+      type: poll.type,
+      createdAt: poll.createdAt.toISOString(),
+      options: poll.options.map((option) => ({
+        id: option.id,
+        title: option.title,
+        file: option.file,
+        pollId: option.pollId,
+        votes: option._count.votes,
+      })),
+    };
   }
 }
 

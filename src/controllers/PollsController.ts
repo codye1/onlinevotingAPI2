@@ -6,8 +6,12 @@ import { isAppError } from '../utils/AppError';
 class PollsController {
   static async addPoll(req: Request, res: Response) {
     const poll = req.body;
+    const userId = req.userId;
     try {
-      const createdPoll = await PollService.addPoll(poll);
+      const createdPoll = await PollService.addPoll({
+        ...poll,
+        creator: userId,
+      });
 
       return Send.success(res, createdPoll, 'Poll created successfully');
     } catch (error) {
@@ -38,6 +42,7 @@ class PollsController {
 
   static async getPolls(req: Request, res: Response) {
     const params = req.query;
+
     try {
       const polls = await PollService.getPolls({
         ...params,
@@ -79,6 +84,23 @@ class PollsController {
         return Send.badRequest(res, null, error.message, error.statusCode);
       }
 
+      return Send.error(res, null, 'Unexpected error occurred');
+    }
+  }
+
+  static async getPollResults(req: Request, res: Response) {
+    const { id } = req.params;
+    console.log('Fetching results for poll ID:', id);
+    try {
+      const pollResults = await PollService.getPollResults(id);
+      console.log('Poll results:', pollResults);
+      return Send.success(
+        res,
+        { poll: pollResults },
+        'Poll results fetched successfully',
+      );
+    } catch (error) {
+      console.error('Get Poll Results error:', error);
       return Send.error(res, null, 'Unexpected error occurred');
     }
   }
