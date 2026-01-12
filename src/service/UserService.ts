@@ -12,8 +12,6 @@ class UserService {
     });
   };
   static createUser = async (data: { email: string; password: string }) => {
-    console.log(data);
-
     return await prisma.user.create({
       data,
     });

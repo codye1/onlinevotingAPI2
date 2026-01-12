@@ -52,6 +52,8 @@ model Poll {
   expireAt   DateTime?
   options     PollOption[]
   votes       Vote[]
+
+  @@index([creator])
 }
 
 model PollOption {
@@ -74,4 +76,7 @@ model Vote{
   poll       Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
   option     PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
 
+
+  @@index([voterId])
+  @@index([pollId,voterId])
 }

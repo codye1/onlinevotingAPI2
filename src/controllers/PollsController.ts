@@ -1,4 +1,4 @@
-import PollService from '../service/PollSerice';
+import PollService from '../service/PollService';
 import Send from '../utils/Send';
 import { Request, Response } from 'express';
 import { isAppError } from '../utils/AppError';
@@ -15,7 +15,7 @@ class PollsController {
 
       return Send.success(res, createdPoll, 'Poll created successfully');
     } catch (error) {
-      console.error('Get Polls error:', error);
+      console.error('Add poll error:', error);
       return Send.error(res, null, 'Unexpected error occurred');
     }
   }
@@ -24,10 +24,6 @@ class PollsController {
     const userId = req.userId;
     const { id } = req.params;
     try {
-      if (!userId) {
-        return Send.unauthorized(res, null, 'Unauthorized');
-      }
-
       const poll = await PollService.getPollById(id, userId);
       if (!poll) {
         return Send.notFound(res, null, 'Poll not found');
@@ -61,10 +57,6 @@ class PollsController {
     const { optionId } = req.body;
 
     try {
-      if (!userId) {
-        return Send.unauthorized(res, null, 'Unauthorized');
-      }
-
       await PollService.votePoll(pollId, optionId, userId);
       return Send.success(res, null, 'Vote recorded successfully');
     } catch (error) {
@@ -90,7 +82,6 @@ class PollsController {
 
   static async getPollResults(req: Request, res: Response) {
     const { id } = req.params;
-    console.log('Fetching results for poll ID:', id);
     try {
       const pollResults = await PollService.getPollResults(id);
       console.log('Poll results:', pollResults);
@@ -101,6 +92,18 @@ class PollsController {
       );
     } catch (error) {
       console.error('Get Poll Results error:', error);
+      if (isAppError(error)) {
+        if (error.statusCode === 404) {
+          return Send.notFound(res, null, error.message);
+        }
+        if (error.statusCode === 401) {
+          return Send.unauthorized(res, null, error.message);
+        }
+        if (error.statusCode === 403) {
+          return Send.forbidden(res, null, error.message);
+        }
+        return Send.badRequest(res, null, error.message, error.statusCode);
+      }
       return Send.error(res, null, 'Unexpected error occurred');
     }
   }

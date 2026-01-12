@@ -115,14 +115,14 @@ class PollService {
         break;
       case 'CREATED':
         queryArgs.where = {
-          creator: String(userId),
+          creator: userId,
         };
         break;
       case 'PARTICIPATED':
         queryArgs.where = {
           votes: {
             some: {
-              voterId: String(userId),
+              voterId: userId,
             },
           },
         };
@@ -202,7 +202,7 @@ class PollService {
       throw new AppError('Poll has expired', 410, 'POLL_EXPIRED');
     }
 
-    if (!poll.changeVote && poll.votes[0]?.voterId == userId) {
+    if (!poll.changeVote && poll.votes[0]?.voterId === userId) {
       throw new AppError(
         'Changing vote is not allowed in this poll',
         403,
@@ -214,8 +214,6 @@ class PollService {
       const lastVoteTime = new Date(poll.votes[0].votedAt).getTime();
       const now = Date.now();
       const interval = Number(poll.voteInterval);
-      console.log(interval);
-      console.log(now - lastVoteTime);
       if (now - lastVoteTime < interval) {
         throw new AppError(
           `You can vote again after ${interval - (now - lastVoteTime)} ms`,
