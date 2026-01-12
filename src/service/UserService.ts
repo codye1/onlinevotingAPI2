@@ -6,7 +6,7 @@ class UserService {
       where: { email },
     });
   };
-  static getUserById = async (id: number) => {
+  static getUserById = async (id: string) => {
     return await prisma.user.findUnique({
       where: { id },
     });

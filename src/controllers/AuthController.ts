@@ -6,6 +6,27 @@ import TokenService from '../service/TokenService';
 import expireToNumber from '../utils/expireToNumber';
 import jwtConfig from '../configs/jwtConfig';
 class AuthController {
+  static issueTokensAndSetRefreshCookie = async (
+    res: Response,
+    user: { id: string; email: string },
+  ) => {
+    const tokens = TokenService.generateToken({ userId: user.id, ...user });
+
+    await TokenService.saveRefreshToken({
+      userId: user.id,
+      refreshToken: tokens.refreshToken,
+    });
+
+    res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: expireToNumber(jwtConfig.refreshExpiresIn),
+      sameSite: 'strict',
+    });
+
+    return tokens;
+  };
+
   static register = async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
@@ -19,20 +40,12 @@ class AuthController {
         password: hashedPassword,
       });
 
-      const { password: _password, id: userId, ...safeNewUser } = newUser;
+      const { password: _password, ...safeNewUser } = newUser;
 
-      const tokens = TokenService.generateToken({ userId, ...safeNewUser });
-      await TokenService.saveRefreshToken({
-        userId: newUser.id,
-        refreshToken: tokens.refreshToken,
-      });
-
-      res.cookie('refreshToken', tokens.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000, // 24h
-        sameSite: 'strict',
-      });
+      const tokens = await AuthController.issueTokensAndSetRefreshCookie(
+        res,
+        safeNewUser,
+      );
 
       return Send.success(
         res,
@@ -55,23 +68,14 @@ class AuthController {
       if (!isPasswordValid)
         return Send.unauthorized(res, null, 'Invalid credentials');
       // Exclude password from user object and rename id to userId
-      const { password: _password, id: userId, ...safeUser } = user;
+      const { password: _password, ...safeUser } = user;
 
       await TokenService.removeRefreshTokensByUserId(user.id);
 
-      const tokens = TokenService.generateToken({ userId, ...safeUser });
-      await TokenService.saveRefreshToken({
-        userId: user.id,
-        refreshToken: tokens.refreshToken,
-      });
-
-      res.cookie('refreshToken', tokens.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: expireToNumber(jwtConfig.refreshExpiresIn),
-        sameSite: 'strict',
-      });
-
+      const tokens = await AuthController.issueTokensAndSetRefreshCookie(
+        res,
+        safeUser,
+      );
       return Send.success(
         res,
         { accessToken: tokens.accessToken, user: safeUser },
@@ -111,20 +115,13 @@ class AuthController {
       await TokenService.removeRefreshToken(refreshToken);
 
       // Exclude password from user object and rename id to userId
-      const { password: _password, id: userId, ...safeUser } = user;
-      const tokens = TokenService.generateToken({ userId, ...safeUser });
+      const { password: _password, ...safeUser } = user;
 
-      await TokenService.saveRefreshToken({
-        userId: user.id,
-        refreshToken: tokens.refreshToken,
-      });
+      const tokens = await AuthController.issueTokensAndSetRefreshCookie(
+        res,
+        safeUser,
+      );
 
-      res.cookie('refreshToken', tokens.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: expireToNumber(jwtConfig.refreshExpiresIn),
-        sameSite: 'strict',
-      });
       return Send.success(
         res,
         { accessToken: tokens.accessToken },
