@@ -7,10 +7,11 @@ class PollsController {
   static async addPoll(req: Request, res: Response) {
     const poll = req.body;
     const userId = req.userId;
+
     try {
       const createdPoll = await PollService.addPoll({
         ...poll,
-        creator: userId,
+        creatorId: userId,
       });
 
       return Send.success(res, createdPoll, 'Poll created successfully');
@@ -38,13 +39,23 @@ class PollsController {
 
   static async getPolls(req: Request, res: Response) {
     const params = req.query;
-
     try {
       const polls = await PollService.getPolls({
         ...params,
         userId: req.userId,
       });
-      return Send.success(res, { polls }, 'Polls fetched successfully');
+
+      const hasMore = polls.length > Number(params.pageSize || 10);
+
+      return Send.success(
+        res,
+        {
+          polls,
+          hasMore,
+          nextCursor: polls.length > 0 ? polls[polls.length - 1].id : null,
+        },
+        'Polls fetched successfully',
+      );
     } catch (error) {
       console.error('Get Polls error:', error);
       return Send.error(res, null, 'Unexpected error occurred');
@@ -82,8 +93,9 @@ class PollsController {
 
   static async getPollResults(req: Request, res: Response) {
     const { id } = req.params;
+    const userId = req.userId;
     try {
-      const pollResults = await PollService.getPollResults(id);
+      const pollResults = await PollService.getPollResults(id, userId);
       console.log('Poll results:', pollResults);
       return Send.success(
         res,

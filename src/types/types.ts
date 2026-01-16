@@ -45,12 +45,12 @@ export interface PollOption {
 }
 
 export enum PollType {
-  MULTIPLE = 'multiple',
-  IMAGE = 'img',
+  MULTIPLE = 'MULTIPLE',
+  IMAGE = 'IMAGE',
 }
 
 export enum PollResultsVisibility {
-  ALWAYS = 'always',
-  AFTER_VOTE = 'afterVote',
-  AFTER_POLL_END = 'afterPollEnd',
+  ALWAYS = 'ALWAYS',
+  AFTER_VOTE = 'AFTER_VOTE',
+  AFTER_POLL_END = 'AFTER_POLL_END',
 }
