@@ -86,7 +86,12 @@ class PollService {
     category,
   }: Params) {
     const limit = pageSize ? parseInt(pageSize) : 10;
-    console.log(category);
+    console.log('Filter: ' + filter);
+    console.log('userId: ' + userId);
+    console.log('cursor: ' + cursor);
+
+    const normalizedFilter =
+      typeof filter === 'string' ? filter.trim().toUpperCase() : undefined;
 
     const orderBy = isSortOrder(sortByVotes)
       ? [{ votes: { _count: sortByVotes } }, { id: 'asc' as const }]
@@ -97,13 +102,14 @@ class PollService {
       orderBy,
     };
 
-    switch (filter) {
+    switch (normalizedFilter) {
       case 'ACTIVE':
         queryArgs.where = {
           OR: [{ expireAt: null }, { expireAt: { gt: new Date() } }],
         };
         break;
       case 'EXPIRED':
+      case 'CLOSED':
         queryArgs.where = {
           expireAt: { lt: new Date() },
         };
@@ -154,8 +160,17 @@ class PollService {
         : undefined;
 
     if (normalizedCursor) {
-      queryArgs.cursor = { id: normalizedCursor };
-      queryArgs.skip = 1;
+      const cursorExistsInCurrentQuery = await prisma.poll.findFirst({
+        where: queryArgs.where
+          ? { AND: [{ id: normalizedCursor }, queryArgs.where] }
+          : { id: normalizedCursor },
+        select: { id: true },
+      });
+
+      if (cursorExistsInCurrentQuery) {
+        queryArgs.cursor = { id: normalizedCursor };
+        queryArgs.skip = 1;
+      }
     }
 
     const polls = await prisma.poll.findMany({
