@@ -33,7 +33,6 @@ model RefreshToken {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
 
-
   @@index([userId])
 }
 
@@ -42,7 +41,7 @@ model RefreshToken {
 model Poll {
   id          String   @id @default(cuid())
   creatorId   String
-  creator     User     @relation(fields: [creatorId], references: [id])
+  creator     User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
   title       String
   category    String?

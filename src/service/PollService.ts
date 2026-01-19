@@ -2,6 +2,7 @@ import { PollFindManyArgs } from '../../generated/prisma/models';
 import { prisma } from '../lib/prisma';
 import isSortOrder from '../utils/isSortOrder';
 import AppError from '../utils/AppError';
+import { Category, PollResultsVisibility } from '../types/types';
 
 interface Poll {
   title: string;
@@ -86,10 +87,6 @@ class PollService {
     category,
   }: Params) {
     const limit = pageSize ? parseInt(pageSize) : 10;
-    console.log('Filter: ' + filter);
-    console.log('userId: ' + userId);
-    console.log('cursor: ' + cursor);
-
     const normalizedFilter =
       typeof filter === 'string' ? filter.trim().toUpperCase() : undefined;
 
@@ -144,7 +141,7 @@ class PollService {
       };
     }
 
-    if (category && category !== 'ALL') {
+    if (category && category !== Category.ALL) {
       queryArgs.where = {
         ...queryArgs.where,
         category: category,
@@ -291,7 +288,11 @@ class PollService {
       },
     });
 
-    if (poll && poll.resultsVisibility === 'AFTER_VOTE') {
+    if (!poll) {
+      throw new AppError('Poll not found', 404, 'POLL_NOT_FOUND');
+    }
+
+    if (poll && poll.resultsVisibility === PollResultsVisibility.AFTER_VOTE) {
       if (poll.votes.length === 0) {
         throw new AppError(
           'Poll results are not available until you vote',
@@ -301,7 +302,7 @@ class PollService {
       }
     }
 
-    if (poll && poll.resultsVisibility === 'AFTER_EXPIRE') {
+    if (poll && poll.resultsVisibility === PollResultsVisibility.AFTER_EXPIRE) {
       const now = new Date();
       if (poll.expireAt && poll.expireAt > now) {
         throw new AppError(
@@ -311,10 +312,6 @@ class PollService {
         );
       }
     }
-    if (!poll) {
-      throw new AppError('Poll not found', 404, 'POLL_NOT_FOUND');
-    }
-
     return {
       id: poll.id,
       creatorEmail: poll.creator.email,

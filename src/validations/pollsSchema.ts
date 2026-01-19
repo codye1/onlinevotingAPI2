@@ -110,7 +110,8 @@ export const addPoll = z
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['options', index, 'file'],
-            message: 'Для MULTIPLE голосування поле file має бути null.',
+            message:
+              'Зображення не підтримуються для опитувань з кількома відповідями.',
           });
         }
       });

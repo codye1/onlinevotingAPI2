@@ -52,5 +52,5 @@ export enum PollType {
 export enum PollResultsVisibility {
   ALWAYS = 'ALWAYS',
   AFTER_VOTE = 'AFTER_VOTE',
-  AFTER_POLL_END = 'AFTER_POLL_END',
+  AFTER_EXPIRE = 'AFTER_EXPIRE',
 }

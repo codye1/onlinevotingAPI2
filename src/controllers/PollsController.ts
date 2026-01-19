@@ -45,14 +45,19 @@ class PollsController {
         userId: req.userId,
       });
 
-      const hasMore = polls.length > Number(params.pageSize || 10);
-
+      const pageSize = Number(params.pageSize || 10);
+      const hasMore = polls.length > pageSize;
+      const paginatedPolls = hasMore ? polls.slice(0, pageSize) : polls;
+      const nextCursor =
+        hasMore && paginatedPolls.length > 0
+          ? paginatedPolls[paginatedPolls.length - 1].id
+          : null;
       return Send.success(
         res,
         {
-          polls,
+          polls: paginatedPolls,
           hasMore,
-          nextCursor: polls.length > 0 ? polls[polls.length - 1].id : null,
+          nextCursor,
         },
         'Polls fetched successfully',
       );
@@ -96,7 +101,6 @@ class PollsController {
     const userId = req.userId;
     try {
       const pollResults = await PollService.getPollResults(id, userId);
-      console.log('Poll results:', pollResults);
       return Send.success(
         res,
         { poll: pollResults },
