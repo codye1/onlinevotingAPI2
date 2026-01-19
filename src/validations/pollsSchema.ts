@@ -4,6 +4,7 @@ import { Category, PollResultsVisibility, PollType } from '../types/types';
 export type addPollFormState =
   | {
       errors?: {
+        image?: string[];
         title?: string[];
         description?: string[];
         options?: string[];
@@ -19,100 +20,152 @@ export type addPollFormState =
     }
   | undefined;
 
-const image = z.object({
-  file: z.url({ message: 'URL зображення обов’язковий і має бути дійсним.' }),
+const optionSchema = z.object({
+  file: z.union([
+    z
+      .string()
+      .url({ message: 'URL зображення обов’язковий і має бути дійсним.' }),
+    z.null(),
+  ]),
   title: z
     .string()
-    .min(1, { message: 'Назва зображення обов’язкова.' })
-    .max(100, {
-      message: 'Назва зображення має містити не більше 100 символів.',
-    })
+    .min(1, { message: 'Назва варіанту обов’язкова.' })
+    .max(100, { message: 'Назва варіанту має містити не більше 100 символів.' })
     .trim(),
 });
 
-const addPoll = z
+const normalizeDateValue = (value: unknown): Date | undefined => {
+  if (value === null || value === undefined) return undefined;
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+  if (typeof value === 'string') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? undefined : date;
+  }
+
+  if (Array.isArray(value)) {
+    const maybeDates = value
+      .map((v) => {
+        if (v instanceof Date) return v;
+        if (typeof v === 'string') {
+          const date = new Date(v);
+          return Number.isNaN(date.getTime()) ? undefined : date;
+        }
+        return undefined;
+      })
+      .filter((v): v is Date => !!v);
+    // DateTimePicker range mode returns [start, end]; prefer end if present.
+    return maybeDates.length > 0
+      ? maybeDates[maybeDates.length - 1]
+      : undefined;
+  }
+
+  return undefined;
+};
+
+export const addPoll = z
   .object({
     title: z
       .string()
       .min(1, { message: 'Назва обов’язкова.' })
       .max(100, { message: 'Назва має містити не більше 100 символів.' })
       .trim(),
-    image: z.string(),
-    changeVote: z.boolean(),
-    voteInterval: z.string(),
+
     description: z
       .string()
-      .max(500, { message: 'Опис має містити не більше 500 символів.' })
+      .max(500, {
+        message: 'Опис має містити не більше 500 символів.',
+      })
       .optional(),
-    type: z.enum(PollType),
-    resultsVisibility: z.enum(PollResultsVisibility),
-    category: z.enum(Category),
-    expireAt: z
-      .date()
-      .optional()
-      .refine(
-        (date) => {
-          if (!date) return true;
-          const now = new Date();
-          const minFutureTime = new Date(now.getTime() + 2 * 60 * 1000);
-          return date >= minFutureTime;
-        },
-        {
-          message:
-            'Дата має бути щонайменше на 2 хвилини пізніше від поточного часу.',
-        },
-      ),
-    options: z.union([
-      z
-        .array(
-          z
-            .string()
-            .min(1, { message: 'Варіант не може бути порожнім.' })
-            .max(100, {
-              message: 'Варіант має містити не більше 100 символів.',
-            })
-            .trim(),
-        )
-        .min(2, { message: 'Потрібно щонайменше два непорожні варіанти.' }),
 
+    image: z.union([
+      z.literal(''),
       z
-        .array(image)
-        .min(1, { message: 'Потрібно щонайменше одне зображення з назвою.' }),
+        .string()
+        .url({ message: 'URL зображення має бути дійсним.' })
+        .max(2048, {
+          message: 'URL зображення має містити не більше 2048 символів.',
+        }),
     ]),
+    type: z.nativeEnum(PollType),
+    options: z.array(optionSchema),
+
+    resultsVisibility: z.nativeEnum(PollResultsVisibility),
+    category: z.nativeEnum(Category),
+
+    changeVote: z.boolean(),
+    voteInterval: z.string(),
+
+    // null/undefined means "no expiration". Accept ISO string or Date.
+    expireAt: z
+      .union([
+        z.string(),
+        z.date(),
+        z.array(z.union([z.string(), z.date()])),
+        z.null(),
+      ])
+      .optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.type === 'multiple') {
-      if (
-        !Array.isArray(data.options) ||
-        !data.options.every((opt) => typeof opt === 'string')
-      ) {
+    if (data.expireAt) {
+      const date = normalizeDateValue(data.expireAt);
+
+      if (!date) {
         ctx.addIssue({
-          code: 'custom',
-          path: ['options'],
+          code: z.ZodIssueCode.custom,
+          path: ['expireAt'],
+          message: 'Вкажіть коректну дату завершення.',
+        });
+      } else if (date < new Date(Date.now() + 2 * 60 * 1000)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['expireAt'],
           message:
-            'Варіанти мають бути масивом рядків для опитування з множинним вибором.',
+            'Дата має бути щонайменше на 2 хвилини пізніше від поточного часу.',
         });
       }
-    } else if (data.type === 'img') {
-      if (
-        !Array.isArray(data.options) ||
-        !data.options.every(
-          (opt) =>
-            typeof opt === 'object' &&
-            opt !== null &&
-            'file' in opt &&
-            'title' in opt &&
-            typeof opt.file === 'string' &&
-            typeof opt.title === 'string',
-        )
-      ) {
+    }
+
+    if (data.type === PollType.MULTIPLE) {
+      if (data.options.length < 2) {
         ctx.addIssue({
-          code: 'custom',
+          code: z.ZodIssueCode.custom,
           path: ['options'],
-          message:
-            'Варіанти мають бути масивом об’єктів із зображеннями, що містять URL і назву для опитування із зображеннями.',
+          message: 'Потрібно щонайменше два варіанти.',
         });
       }
+
+      data.options.forEach((opt, index) => {
+        if (opt.file !== null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['options', index, 'file'],
+            message:
+              'Зображення не підтримуються для опитувань з кількома відповідями.',
+          });
+        }
+      });
+    }
+
+    if (data.type === PollType.IMAGE) {
+      if (data.options.length < 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['options'],
+          message: 'Потрібно щонайменше одне зображення.',
+        });
+      }
+
+      data.options.forEach((opt, index) => {
+        if (opt.file === null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['options', index, 'file'],
+            message: 'Зображення обов’язкове.',
+          });
+        }
+      });
     }
   });
 

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import AuthController from '../controllers/AuthController';
 import authMiddleware from '../middlewares/authMiddleware';
+import optionalAuthMiddleware from '../middlewares/optionalAuthMiddleware';
 import authSchema from '../validations/authSchema';
 import validationMiddleware from '../middlewares/validationMiddleware';
 import PollsController from '../controllers/PollsController';
@@ -24,12 +25,12 @@ router.post('/polls', [
   validationMiddleware(pollsSchema.addPoll),
   PollsController.addPoll,
 ]);
-router.get('/polls', authMiddleware, PollsController.getPolls);
-router.get('/polls/:id', authMiddleware, PollsController.getPoll);
+router.get('/polls', optionalAuthMiddleware, PollsController.getPolls);
+router.get('/polls/:id', optionalAuthMiddleware, PollsController.getPoll);
 router.post('/polls/:id/votes', authMiddleware, PollsController.votePoll);
 router.get(
   '/polls/:id/results',
-  authMiddleware,
+  optionalAuthMiddleware,
   PollsController.getPollResults,
 );
 

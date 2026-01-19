@@ -7,10 +7,11 @@ class PollsController {
   static async addPoll(req: Request, res: Response) {
     const poll = req.body;
     const userId = req.userId;
+
     try {
       const createdPoll = await PollService.addPoll({
         ...poll,
-        creator: userId,
+        creatorId: userId,
       });
 
       return Send.success(res, createdPoll, 'Poll created successfully');
@@ -38,13 +39,28 @@ class PollsController {
 
   static async getPolls(req: Request, res: Response) {
     const params = req.query;
-
     try {
       const polls = await PollService.getPolls({
         ...params,
         userId: req.userId,
       });
-      return Send.success(res, { polls }, 'Polls fetched successfully');
+
+      const pageSize = Number(params.pageSize || 10);
+      const hasMore = polls.length > pageSize;
+      const paginatedPolls = hasMore ? polls.slice(0, pageSize) : polls;
+      const nextCursor =
+        hasMore && paginatedPolls.length > 0
+          ? paginatedPolls[paginatedPolls.length - 1].id
+          : null;
+      return Send.success(
+        res,
+        {
+          polls: paginatedPolls,
+          hasMore,
+          nextCursor,
+        },
+        'Polls fetched successfully',
+      );
     } catch (error) {
       console.error('Get Polls error:', error);
       return Send.error(res, null, 'Unexpected error occurred');
@@ -82,9 +98,9 @@ class PollsController {
 
   static async getPollResults(req: Request, res: Response) {
     const { id } = req.params;
+    const userId = req.userId;
     try {
-      const pollResults = await PollService.getPollResults(id);
-      console.log('Poll results:', pollResults);
+      const pollResults = await PollService.getPollResults(id, userId);
       return Send.success(
         res,
         { poll: pollResults },

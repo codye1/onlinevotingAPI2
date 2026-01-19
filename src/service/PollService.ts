@@ -2,14 +2,15 @@ import { PollFindManyArgs } from '../../generated/prisma/models';
 import { prisma } from '../lib/prisma';
 import isSortOrder from '../utils/isSortOrder';
 import AppError from '../utils/AppError';
+import { Category, PollResultsVisibility } from '../types/types';
 
 interface Poll {
   title: string;
   category?: string;
   description?: string;
   image?: string;
-  options: string[] | { file: string; title: string }[];
-  creator: string;
+  options: { file: string | null; title: string }[];
+  creatorId: string;
   type: string;
   resultsVisibility: string;
   changeVote: boolean;
@@ -38,19 +39,10 @@ class PollService {
       },
     });
     const createdOptions = await prisma.pollOption.createManyAndReturn({
-      data: options.map((option) => {
-        if (typeof option !== 'string') {
-          return {
-            ...option,
-            pollId: createdPoll.id,
-          };
-        }
-
-        return {
-          title: option,
-          pollId: createdPoll.id,
-        };
-      }),
+      data: options.map((option) => ({
+        ...option,
+        pollId: createdPoll.id,
+      })),
     });
 
     return { options: createdOptions, ...createdPoll };
@@ -67,6 +59,9 @@ class PollService {
           include: {
             option: true,
           },
+        },
+        creator: {
+          select: { email: true },
         },
       },
     });
@@ -92,30 +87,33 @@ class PollService {
     category,
   }: Params) {
     const limit = pageSize ? parseInt(pageSize) : 10;
+    const normalizedFilter =
+      typeof filter === 'string' ? filter.trim().toUpperCase() : undefined;
 
     const orderBy = isSortOrder(sortByVotes)
       ? [{ votes: { _count: sortByVotes } }, { id: 'asc' as const }]
       : { createdAt: 'desc' as const };
 
     const queryArgs: PollFindManyArgs = {
-      take: limit,
+      take: limit + 1,
       orderBy,
     };
 
-    switch (filter) {
+    switch (normalizedFilter) {
       case 'ACTIVE':
         queryArgs.where = {
           OR: [{ expireAt: null }, { expireAt: { gt: new Date() } }],
         };
         break;
       case 'EXPIRED':
+      case 'CLOSED':
         queryArgs.where = {
           expireAt: { lt: new Date() },
         };
         break;
       case 'CREATED':
         queryArgs.where = {
-          creator: userId,
+          creatorId: userId,
         };
         break;
       case 'PARTICIPATED':
@@ -143,16 +141,33 @@ class PollService {
       };
     }
 
-    if (category && category !== 'ALL') {
+    if (category && category !== Category.ALL) {
       queryArgs.where = {
         ...queryArgs.where,
         category: category,
       };
     }
 
-    if (cursor) {
-      queryArgs.cursor = { id: cursor };
-      queryArgs.skip = 1;
+    const normalizedCursor =
+      typeof cursor === 'string' &&
+      cursor.trim() !== '' &&
+      cursor !== 'null' &&
+      cursor !== 'undefined'
+        ? cursor
+        : undefined;
+
+    if (normalizedCursor) {
+      const cursorExistsInCurrentQuery = await prisma.poll.findFirst({
+        where: queryArgs.where
+          ? { AND: [{ id: normalizedCursor }, queryArgs.where] }
+          : { id: normalizedCursor },
+        select: { id: true },
+      });
+
+      if (cursorExistsInCurrentQuery) {
+        queryArgs.cursor = { id: normalizedCursor };
+        queryArgs.skip = 1;
+      }
     }
 
     const polls = await prisma.poll.findMany({
@@ -239,7 +254,7 @@ class PollService {
     });
   }
 
-  static async getPollResults(pollId: string) {
+  static async getPollResults(pollId: string, userId: string) {
     const poll = await prisma.poll.findUnique({
       where: { id: pollId },
       select: {
@@ -248,6 +263,14 @@ class PollService {
         title: true,
         type: true,
         createdAt: true,
+        expireAt: true,
+        votes: {
+          where: { voterId: userId },
+          orderBy: { votedAt: 'desc' },
+          include: {
+            option: true,
+          },
+        },
         options: {
           select: {
             id: true,
@@ -261,6 +284,7 @@ class PollService {
             },
           },
         },
+        resultsVisibility: true,
       },
     });
 
@@ -268,9 +292,29 @@ class PollService {
       throw new AppError('Poll not found', 404, 'POLL_NOT_FOUND');
     }
 
+    if (poll && poll.resultsVisibility === PollResultsVisibility.AFTER_VOTE) {
+      if (poll.votes.length === 0) {
+        throw new AppError(
+          'Poll results are not available until you vote',
+          403,
+          'POLL_RESULTS_NOT_AVAILABLE',
+        );
+      }
+    }
+
+    if (poll && poll.resultsVisibility === PollResultsVisibility.AFTER_EXPIRE) {
+      const now = new Date();
+      if (poll.expireAt && poll.expireAt > now) {
+        throw new AppError(
+          'Poll results are not available until the poll expires',
+          403,
+          'POLL_RESULTS_NOT_AVAILABLE',
+        );
+      }
+    }
     return {
       id: poll.id,
-      creatorEmail: poll.creator,
+      creatorEmail: poll.creator.email,
       title: poll.title,
       type: poll.type,
       createdAt: poll.createdAt.toISOString(),
