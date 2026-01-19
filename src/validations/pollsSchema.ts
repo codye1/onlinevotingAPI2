@@ -34,13 +34,27 @@ const optionSchema = z.object({
     .trim(),
 });
 
-const pickDateFromPickerValue = (value: unknown): Date | undefined => {
+const normalizeDateValue = (value: unknown): Date | undefined => {
+  if (value === null || value === undefined) return undefined;
+
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
 
+  if (typeof value === 'string') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? undefined : date;
+  }
+
   if (Array.isArray(value)) {
-    const maybeDates = value.filter(
-      (v): v is Date => v instanceof Date && !Number.isNaN(v.getTime()),
-    );
+    const maybeDates = value
+      .map((v) => {
+        if (v instanceof Date) return v;
+        if (typeof v === 'string') {
+          const date = new Date(v);
+          return Number.isNaN(date.getTime()) ? undefined : date;
+        }
+        return undefined;
+      })
+      .filter((v): v is Date => !!v);
     // DateTimePicker range mode returns [start, end]; prefer end if present.
     return maybeDates.length > 0
       ? maybeDates[maybeDates.length - 1]
@@ -65,7 +79,15 @@ export const addPoll = z
       })
       .optional(),
 
-    image: z.string(),
+    image: z.union([
+      z.literal(''),
+      z
+        .string()
+        .url({ message: 'URL зображення має бути дійсним.' })
+        .max(2048, {
+          message: 'URL зображення має містити не більше 2048 символів.',
+        }),
+    ]),
     type: z.nativeEnum(PollType),
     options: z.array(optionSchema),
 
@@ -75,21 +97,30 @@ export const addPoll = z
     changeVote: z.boolean(),
     voteInterval: z.string(),
 
-    expireAtDate: z.unknown(),
+    // null/undefined means "no expiration". Accept ISO string or Date.
+    expireAt: z
+      .union([
+        z.string(),
+        z.date(),
+        z.array(z.union([z.string(), z.date()])),
+        z.null(),
+      ])
+      .optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.expireAtDate) {
-      const date = pickDateFromPickerValue(data.expireAtDate);
+    if (data.expireAt) {
+      const date = normalizeDateValue(data.expireAt);
+
       if (!date) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ['expireAtDate'],
+          path: ['expireAt'],
           message: 'Вкажіть коректну дату завершення.',
         });
       } else if (date < new Date(Date.now() + 2 * 60 * 1000)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ['expireAtDate'],
+          path: ['expireAt'],
           message:
             'Дата має бути щонайменше на 2 хвилини пізніше від поточного часу.',
         });

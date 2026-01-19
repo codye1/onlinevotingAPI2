@@ -152,13 +152,17 @@ Body (validated by Zod):
   "category": "Технології",
   "changeVote": true,
   "voteInterval": "0",
-  "expireAtDate": null
+  "expireAt": null,
 }
 ```
 
 - `type`: `MULTIPLE` or `IMAGE`
 - For `MULTIPLE`: `options[].file` must be `null`
 - For `IMAGE`: `options[].file` must be a valid URL
+- `resultsVisibility`: `ALWAYS` | `AFTER_VOTE` | `AFTER_EXPIRE`
+- `category` values are localized (Ukrainian strings) and should match the backend enum.
+- `voteInterval` is treated as milliseconds (string/number) between votes for the same user.
+- `expireAt` can be provided as an ISO datetime string; `null` means “no expiration”.
 
 #### GET `/polls` (auth optional)
 
@@ -197,7 +201,7 @@ Rules:
 
 Returns aggregated results per option (vote counts).
 
-> Note: results availability depends on `resultsVisibility`.
+> Note: results availability depends on `resultsVisibility` (`AFTER_VOTE` requires at least one vote by the current user; `AFTER_EXPIRE` requires the poll to be expired).
 
 ## Examples (curl)
 
@@ -233,7 +237,8 @@ curl -i -X POST http://localhost:3000/polls \
     "category":"Технології",
     "changeVote":true,
     "voteInterval":"0",
-    "expireAtDate":null
+    "expireAt":null,
+    "expireAt":null
   }'
 ```
 
@@ -262,5 +267,5 @@ curl -i -b cookies.txt -X POST http://localhost:3000/refresh
 
 ## Known caveats
 
-- `resultsVisibility` is stored as a plain string in the DB; ensure client/server enums match.
-- Request field `expireAtDate` is validated, but the server currently expects `expireAt` to be passed into the service; if you need expiration to be persisted, map `expireAtDate` -> `expireAt` on the backend.
+- `resultsVisibility` is stored as a plain string in the DB; ensure client/server values match.
+- Deleting a `User` cascades to their `Poll` records (`ON DELETE CASCADE`), and polls cascade to options/votes.
