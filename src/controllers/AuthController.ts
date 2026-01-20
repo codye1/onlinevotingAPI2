@@ -22,7 +22,7 @@ class AuthController {
       maxAge: expireToNumber(jwtConfig.refreshExpiresIn),
       sameSite: 'none',
       secure: true,
-      domain: 'https://onlinevoting-api-2.vercel.app',
+      domain: 'onlinevoting-api-2.vercel.app',
     });
 
     return tokens;
