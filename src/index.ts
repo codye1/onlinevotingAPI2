@@ -33,6 +33,7 @@ const corsOptions: CorsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(router);
 
 const PORT = process.env.PORT || 3000;
