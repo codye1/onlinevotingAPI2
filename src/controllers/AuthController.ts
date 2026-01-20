@@ -19,9 +19,10 @@ class AuthController {
 
     res.cookie('refreshToken', tokens.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
       maxAge: expireToNumber(jwtConfig.refreshExpiresIn),
-      sameSite: 'strict',
+      sameSite: 'none',
+      secure: true,
+      domain: 'https://onlinevoting-api-2.vercel.app',
     });
 
     return tokens;
