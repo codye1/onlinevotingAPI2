@@ -14,6 +14,7 @@ const corsAllowList = (process.env.CORS || '')
   .map((value) => value.trim())
   .filter(Boolean);
 
+console.log(corsAllowList);
 const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
     if (!origin) {
@@ -33,7 +34,7 @@ const corsOptions: CorsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options('/*', cors(corsOptions));
 app.use(router);
 
 const PORT = process.env.PORT || 3000;
