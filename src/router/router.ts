@@ -6,6 +6,7 @@ import authSchema from '../validations/authSchema';
 import validationMiddleware from '../middlewares/validationMiddleware';
 import PollsController from '../controllers/PollsController';
 import pollsSchema from '../validations/pollsSchema';
+import { prisma } from '../lib/prisma';
 
 const router = Router();
 
@@ -33,5 +34,10 @@ router.get(
   optionalAuthMiddleware,
   PollsController.getPollResults,
 );
+
+router.get('/health', async (req, res) => {
+  const count = await prisma.user.count(); // Simple DB query to ensure DB connection is healthy
+  res.status(200).send('OK ' + count);
+});
 
 export default router;
