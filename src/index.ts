@@ -1,37 +1,4 @@
-import express from 'express';
-import cookieParser from 'cookie-parser';
-import cors, { CorsOptions } from 'cors';
-
-import router from './router/router';
-
-const app = express();
-
-app.use(express.json());
-app.use(cookieParser());
-
-const corsAllowList = (process.env.CORS || '')
-  .split(',')
-  .map((value) => value.trim())
-  .filter(Boolean);
-
-const corsOptions: CorsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (corsAllowList.includes(origin)) {
-      return callback(null, true);
-    }
-
-    callback(new Error('Not allowed by CORS'));
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  credentials: true,
-};
-
-app.use(cors(corsOptions));
-app.use(router);
+import app from './app';
 
 const PORT = process.env.PORT || 3000;
 

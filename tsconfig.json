@@ -9,6 +9,6 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node"]
   },
-  "include": ["src/**/*", "generated/**/*"],
+  "include": ["src/**/*", "generated/**/*", "api/**/*"],
   "exclude": ["dist", "node_modules", "eslint.config.mts"]
 }
