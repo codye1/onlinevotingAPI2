@@ -5,6 +5,8 @@ import Send from '../utils/Send';
 import TokenService from '../service/TokenService';
 import expireToNumber from '../utils/expireToNumber';
 import jwtConfig from '../configs/jwtConfig';
+import { googleClient } from '../lib/google';
+
 class AuthController {
   static issueTokensAndSetRefreshCookie = async (
     res: Response,
@@ -39,6 +41,7 @@ class AuthController {
       const newUser = await UserService.createUser({
         email,
         password: hashedPassword,
+        provider: 'LOCAL',
       });
 
       const { password: _password, ...safeNewUser } = newUser;
@@ -65,7 +68,20 @@ class AuthController {
     try {
       const user = await UserService.getUserByEmail(email);
       if (!user) return Send.notFound(res, null, 'User not found');
-      const isPasswordValid = await bcrypt.compare(password, user.password);
+
+      // Handle users registered via Google OAuth
+      // user with password can connect google, so handle only if password is missing and provider is not LOCAL
+      if (!user.password && user.provider !== 'LOCAL')
+        return Send.unauthorized(
+          res,
+          null,
+          'This account was registered with Google. Please login using Google.',
+        );
+
+      if (!user.password)
+        return Send.unauthorized(res, null, 'Invalid credentials');
+
+      const isPasswordValid = bcrypt.compare(password, user.password);
       if (!isPasswordValid)
         return Send.unauthorized(res, null, 'Invalid credentials');
       // Exclude password from user object and rename id to userId
@@ -142,6 +158,50 @@ class AuthController {
 
       return Send.error(res, null, 'Unexpected error occurred');
     }
+  };
+
+  static googleAuth = async (req: Request, res: Response) => {
+    const { credential } = req.body;
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload?.email) {
+      return res.status(401).json({ message: 'Invalid Google token' });
+    }
+
+    let user = await UserService.getUserByEmail(payload.email);
+
+    if (user && user.provider === 'LOCAL') {
+      user = await UserService.updateById(user.id, {
+        provider: 'GOOGLE',
+      });
+    }
+
+    if (!user) {
+      user = await UserService.createUser({
+        email: payload.email,
+        provider: 'GOOGLE',
+      });
+    }
+
+    const { password: _password, ...safeUser } = user;
+
+    await TokenService.removeRefreshTokensByUserId(user.id);
+
+    const tokens = await AuthController.issueTokensAndSetRefreshCookie(
+      res,
+      safeUser,
+    );
+
+    return Send.success(
+      res,
+      { accessToken: tokens.accessToken, user: safeUser },
+      'Login successful',
+    );
   };
 }
 

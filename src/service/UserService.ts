@@ -11,8 +11,26 @@ class UserService {
       where: { id },
     });
   };
-  static createUser = async (data: { email: string; password: string }) => {
+  static createUser = async (data: {
+    email: string;
+    password?: string;
+    provider: string;
+  }) => {
     return await prisma.user.create({
+      data,
+    });
+  };
+  static updateById = async (
+    id: string,
+    data: Partial<{
+      email: string;
+      password: string;
+      name: string;
+      provider: string;
+    }>,
+  ) => {
+    return await prisma.user.update({
+      where: { id },
       data,
     });
   };

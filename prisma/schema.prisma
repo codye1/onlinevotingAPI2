@@ -20,7 +20,9 @@ datasource db {
 model User {
   id            String   @id @default(cuid())
   email         String         @unique
-  password      String
+  password      String  ?
+
+  provider      String   @default("LOCAL")
 
   polls        Poll[]
   refreshTokens RefreshToken[]
