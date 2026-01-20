@@ -20,6 +20,7 @@ router.post('/login', [
 ]);
 router.post('/logout', AuthController.logout);
 router.post('/refresh', AuthController.refreshToken);
+router.post('/auth/google', [AuthController.googleAuth]);
 
 router.post('/polls', [
   authMiddleware,

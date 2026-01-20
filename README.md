@@ -18,21 +18,21 @@ Backend API for an online voting app. Includes JWT auth (access + refresh), poll
 
 ## Quick start
 
-1) Install dependencies:
+1. Install dependencies:
 
 ```bash
 npm install
 ```
 
-2) Create `.env` in the project root (example below).
+2. Create `.env` in the project root (example below).
 
-3) Apply Prisma migrations:
+3. Apply Prisma migrations:
 
 ```bash
 npx prisma migrate dev
 ```
 
-4) Run the server in dev mode:
+4. Run the server in dev mode:
 
 ```bash
 npm run dev
@@ -64,6 +64,7 @@ JWT_REFRESH_EXPIRES_IN=30d
 ```
 
 Notes:
+
 - `CORS` is a comma-separated allow-list of origins. If the request has no origin (e.g., Postman), it is allowed.
 - The refresh token is stored in an httpOnly cookie named `refreshToken`.
 
@@ -152,7 +153,7 @@ Body (validated by Zod):
   "category": "Технології",
   "changeVote": true,
   "voteInterval": "0",
-  "expireAt": null,
+  "expireAt": null
 }
 ```
 
@@ -167,6 +168,7 @@ Body (validated by Zod):
 #### GET `/polls` (auth optional)
 
 Query params:
+
 - `pageSize` (default: 10)
 - `cursor` (id of the last item from previous page)
 - `sortByVotes` (`asc` | `desc`) — sort by vote count
@@ -194,6 +196,7 @@ Body:
 ```
 
 Rules:
+
 - If `changeVote=false`, changing the vote is forbidden
 - If `voteInterval>0`, the user can vote again only after the interval passes
 
