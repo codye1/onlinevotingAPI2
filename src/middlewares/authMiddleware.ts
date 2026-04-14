@@ -6,18 +6,23 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-      return Send.unauthorized(res, null, 'No authorization header provided');
+      return Send.unauthorized(
+        res,
+        null,
+        'No authorization header provided',
+        'NO_AUTH_HEADER',
+      );
     }
 
     const token = authHeader.split(' ')[1];
     if (!token) {
-      return Send.unauthorized(res, null, 'No token provided');
+      return Send.unauthorized(res, null, 'No token provided', 'NO_TOKEN');
     }
 
     const tokenData = TokenService.verifyAccessToken(token);
 
     if (!tokenData || typeof tokenData.userId !== 'string') {
-      return Send.unauthorized(res, null, 'Invalid token');
+      return Send.unauthorized(res, null, 'Invalid token', 'INVALID_TOKEN');
     }
 
     req.userId = tokenData.userId;
@@ -28,10 +33,10 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     const err = error as { name?: string } | undefined;
     const errorName = err && typeof err === 'object' ? err.name : undefined;
     if (errorName === 'TokenExpiredError') {
-      return Send.unauthorized(res, null, 'Token expired');
+      return Send.unauthorized(res, null, 'Token expired', 'TOKEN_EXPIRED');
     }
     if (errorName === 'JsonWebTokenError' || errorName === 'NotBeforeError') {
-      return Send.unauthorized(res, null, 'Invalid token');
+      return Send.unauthorized(res, null, 'Invalid token', 'INVALID_TOKEN');
     }
 
     return Send.error(res, null, 'Unexpected error occurred');

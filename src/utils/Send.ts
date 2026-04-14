@@ -27,11 +27,17 @@ class Send {
     });
   }
 
-  static unauthorized<T>(res: Response, data: T, message = 'unauthorized') {
+  static unauthorized<T>(
+    res: Response,
+    data: T,
+    message = 'unauthorized',
+    code = 'UNAUTHORIZED',
+  ) {
     // 401 for unauthorized access (e.g., invalid token)
     res.status(401).json({
       ok: false,
       message,
+      code,
       ...data,
     });
   }
